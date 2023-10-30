@@ -6,8 +6,9 @@ from dotenv import load_dotenv
 from helper.time import time_to_sleep
 from Class.Contacts import Contacts as Cts
 from Class.Selenium import Selenium
-from helper.files import match_file_and_get_content, get_message_dir_path
+from helper.files import read_file_content, get_message_dir_path
 from helper.df import save_to_csv
+from helper.time import time_to_sleep
 from pathlib import Path
 
 load_dotenv()
@@ -26,7 +27,8 @@ contacts = Cts()
 class LinkedInMessage:
     """Clase para gestionar contactos y enviar mensajes a cada uno por LinkedIm"""
 
-    def __init__(self, company_name) -> None:
+    def __init__(self, company_name, executor) -> None:
+        self.executor = executor
         self.company_name = company_name
         self.contacts = []
         self.contacts_to_save = []
@@ -49,18 +51,28 @@ class LinkedInMessage:
 
         self.selenium.init()
         self.selenium.login()
+        time_to_sleep(1, 5)
 
-    def select_message(self, position) -> str:
+    def select_message(self, name: str) -> str:
         """Seleccionar mensaje en función del cargo"""
 
-        message_path = get_message_dir_path()
-        files = [f for f in message_path.iterdir() if f.suffix == ".txt"]
-        txt = match_file_and_get_content(position, files)
+        message_dir_path = get_message_dir_path(self.executor)
+
+        if message_dir_path:
+            file, *_ = [f for f in message_dir_path.iterdir() if f.suffix == ".txt"]
+            content_file = read_file_content(file)
+            txt = content_file.format(name = name)
+        else:
+            print("!!"*50)
+            print("No existe carpeta para empresa ejecutora especificada o no se ha especificado.")
+            print("Revisa la carpeta 'messages' para determinar mensaje de la empresa ejecutora")
+            print("!!"*50)
 
         return txt
 
     def manage_contact(self, url: str) -> str:
         """Función que gestiona acciones en la página del contacto"""
+
         actions = self.selenium.manage_contact_page(url)
         return actions
 
@@ -69,7 +81,7 @@ class LinkedInMessage:
 
         counter = 1
         for contact in self.contacts:
-            name, _, contact_url, _, key_position = contact.values()
+            name, contact_url = contact["name"], contact["page_profile"]
             contact["status"] = ACTION_NOT_POSSIBLE
 
             print("="*50)
@@ -87,8 +99,8 @@ class LinkedInMessage:
                 time_to_sleep(1, 5)
 
             if ACTION_CONNECT in actions:
-                message = self.select_message(key_position)
-                self.selenium.press_connect_button(name, message)
+                message = self.select_message(name)
+                self.selenium.press_connect_button(message)
                 contact["status"] = ACTION_CONNECT
                 time_to_sleep(3, 8)
 

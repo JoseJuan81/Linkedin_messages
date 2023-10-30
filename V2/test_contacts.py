@@ -1,74 +1,82 @@
-import unittest
+
 from Class.Contacts import Contacts
 from pathlib import Path
 
-COMPANY_NAME = "test_company"
+COMPANY_NAME = "test_company_2.csv"
 
 
-class TestContacts(unittest.TestCase):
+def test_contacts_path():
+    """Probar la ruta en la que se encuentran los datos"""
+    contact = Contacts()
+    contact.set_company_name(COMPANY_NAME)
+    # se ejecuta get_source_path() automaticamente
 
-    def test_contacts_path(self):
-        """Probar la ruta en la que se encuentran los datos"""
-        contact = Contacts()
-        contact.get_source_path()
+    jupyter_path = Path().absolute().parents[1]
+    expected_dir_path = Path(jupyter_path, "scraping-linkedin", "V2", "result", COMPANY_NAME)
 
-        jupyter_path = Path().absolute()
-        expected_dir_path = Path(jupyter_path, "Scraping-linkedin", "data")
-
-        self.assertEqual(expected_dir_path, contact.contacts_source)
-
-    def test_select_company_data(self):
-        contact = Contacts()
-        contact.set_company_name(COMPANY_NAME)
-
-        expected = COMPANY_NAME
-        self.assertEqual(expected, contact.company_name)
-        self.assertEqual(expected, contact.company_dir_path.stem)
-
-    def test_get_contacts_files(self):
-        contact = Contacts()
-        contact.set_company_name(COMPANY_NAME)
-        contact.get_contacts_files()
-        self.assertEqual(len(contact.files), 10)
-
-    def test_build_contact_obj(self):
-        contact = Contacts()
-        contact.set_company_name(COMPANY_NAME)
-        contacts = contact.build_contact()
-
-        expected = {
-            "name": "Jaime Hugo Gonzales Cordero",
-            "position": "Administrador de Compras e Inventario en Compañía Minera Antamina",
-            "link": "https://www.linkedin.com/in/jaime-hugo-gonzales-cordero-7884298a?miniProfileUrn=urn%3Ali%3Afs_miniProfile%3AACoAABLtsxgBHw-1c61qm_sR5KiIZddBLwjaIDk",
-            "page": "56",
-            "key_position": "compras"
-        }
-        self.assertEqual(contacts[0], expected)
-
-    def test_get_contacts_from(self):
-        contact = Contacts()
-        contacts = contact.get_contacts_from(COMPANY_NAME)
-        first_contact = contacts[0]
-        expected = {
-            "name": "Jaime Hugo Gonzales Cordero",
-            "position": "Administrador de Compras e Inventario en Compañía Minera Antamina",
-            "link": "https://www.linkedin.com/in/jaime-hugo-gonzales-cordero-7884298a?miniProfileUrn=urn%3Ali%3Afs_miniProfile%3AACoAABLtsxgBHw-1c61qm_sR5KiIZddBLwjaIDk",
-            "page": "56",
-            "key_position": "compras"
-        }
-        self.assertEqual(first_contact, expected)
-
-    def test_first_15_contacts(self):
-        contact = Contacts()
-        contacts = contact.get_contacts_from(COMPANY_NAME)
-        first_15_contacts = contacts[:15]
-        self.assertEqual(len(first_15_contacts), 15)
-
-    def test_all_128_contacts(self):
-        contact = Contacts()
-        contacts = contact.get_contacts_from(COMPANY_NAME)
-        self.assertEqual(len(contacts), 128)
+    assert expected_dir_path == contact.contacts_source
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_select_company_data():
+    contact = Contacts()
+    contact.set_company_name(COMPANY_NAME)
+    # se ejecuta get_source_path() automaticamente
+
+    expected = COMPANY_NAME
+    assert expected == f"{contact.company_name}.csv"
+    assert expected == contact.company_dir_path.stem
+
+
+def test_get_contacts_files():
+    """Busca en la carpeta result de scrapping-linkedin y cuenta la cantidad de archivos que existen"""
+
+    contact = Contacts()
+    contact.set_company_name(COMPANY_NAME)
+    # se ejecuta get_source_path() automaticamente
+    contact.get_contacts_files()
+    assert len(contact.files) == 1 
+
+
+def test_build_contact_obj():
+    contact = Contacts()
+    contact.set_company_name(COMPANY_NAME)
+    contact.get_source_path()
+    contacts = contact.build_contact()
+
+    expected = {
+        "name": "Rafael Estrada",
+        "job_position": "IT manager at Antamina",
+        "image": "NT",
+        "page_profile": "https://www.linkedin.com/in/rafael-estrada-a6a6226?miniProfileUrn=urn%3Ali%3Afs_miniProfile%3AACoAAAEo3XIB0ScJAZUi81HQSwr7Of0PJmV4wTw",
+        "action": "Enviar mensaje",
+        "country": "Perú",
+        "company_name": "Antamina",
+        "company_page": 96,
+        # "key_position": "compras"
+    }
+    assert contacts[0] == expected
+
+
+def test_get_contacts_from():
+    contact = Contacts()
+    contacts = contact.get_contacts_from(COMPANY_NAME)
+    first_contact = contacts[0]
+    expected = {
+        "name": "Rafael Estrada",
+        "job_position": "IT manager at Antamina",
+        "image": "NT",
+        "page_profile": "https://www.linkedin.com/in/rafael-estrada-a6a6226?miniProfileUrn=urn%3Ali%3Afs_miniProfile%3AACoAAAEo3XIB0ScJAZUi81HQSwr7Of0PJmV4wTw",
+        "action": "Enviar mensaje",
+        "country": "Perú",
+        "company_name": "Antamina",
+        "company_page": 96,
+    }
+    assert first_contact == expected
+
+
+def test_first_3_contacts():
+    contact = Contacts()
+    contacts = contact.get_contacts_from(COMPANY_NAME)
+    first_3_contacts = contacts[:3]
+    assert len(first_3_contacts) == 3
+

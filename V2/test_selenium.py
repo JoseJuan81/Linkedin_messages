@@ -1,4 +1,4 @@
-import unittest
+
 import os
 from Class.Selenium import Selenium
 from dotenv import load_dotenv
@@ -21,67 +21,64 @@ LINKEDIN_CONTACT_FOLLOW = "https://www.linkedin.com/in/hyder-mamani-83769617/"
 LINKEDIN_CONTACT_NOT_POSSIBLE = "https://www.linkedin.com/in/juanreymundo%C3%B1ahui/"
 
 
-class TestSelenium(unittest.TestCase):
+def test_linkedin_login_form_input_email():
+    sel = Selenium()
+    sel.init()
+    sel.driver.get(URL_HOME)
+    input_el, *_ = sel.get_element_by_xpath(LOGIN_INPUT_EMAIL)
+    expected = "session_key"
 
-    def setUp(self):
-        self.sel = Selenium()
-        self.sel.init()
-
-    def test_linkedin_login_form_input_email(self):
-        self.sel.driver.get(URL_HOME)
-        input_el, *_ = self.sel.get_element_by_xpath(LOGIN_INPUT_EMAIL)
-        expected = "session_key"
-
-        self.assertEqual(type(LOGIN_INPUT_EMAIL), str)
-        self.assertEqual(input_el.get_attribute("id"), expected)
-
-    def test_linkedin_login_form_input_pass(self):
-        self.sel.driver.get(URL_HOME)
-        input_el, *_ = self.sel.get_element_by_xpath(LOGIN_INPUT_PASS)
-        expected = "session_password"
-
-        self.assertEqual(type(LOGIN_INPUT_EMAIL), str)
-        self.assertEqual(input_el.get_attribute("id"), expected)
-
-    def test_linkedin_login_form_btn(self):
-        self.sel.driver.get(URL_HOME)
-        input_el, *_ = self.sel.get_element_by_xpath(LOGIN_BUTTON)
-        expected = "sign-in-form__submit-btn"
-
-        self.assertEqual(type(LOGIN_INPUT_EMAIL), str)
-        self.assertEqual(input_el.get_attribute("data-id"), expected)
-
-    def test_manage_contact_page(self):
-        self.sel.login()
-
-        print("detectar botón para Conectar")
-        actions = self.sel.manage_contact_page(LINKEDIN_CONTACT_CONECT)
-        self.assertIn(ACTION_CONNECT, actions,
-                      "ERROR en: Botón para conectar")
-        print("Conectar: OK")
-
-        print("detectar botón para Pendiente")
-        actions = self.sel.manage_contact_page(LINKEDIN_CONTACT_PENDING)
-        self.assertIn(ACTION_PENDING, actions, "ERROR en: Botón Pendiente")
-        print("Pendiente: OK")
-
-        print("detectar botón para Seguir")
-        actions = self.sel.manage_contact_page(LINKEDIN_CONTACT_FOLLOW)
-        self.assertIn(ACTION_FOLLOW, actions,
-                      "ERROR: No se encuentra botón Seguir")
-        print("Seguir: OK")
-
-        print("detectar botón para Sin Botón")
-        actions = self.sel.manage_contact_page(
-            LINKEDIN_CONTACT_NOT_POSSIBLE)
-        self.assertEqual([], actions,
-                         "ERROR en: Sin Botón")
-        print("Sin Botón: OK")
+    assert isinstance(LOGIN_INPUT_EMAIL, str)
+    assert input_el.get_attribute("id") == expected
+    sel.quit()
 
 
-if __name__ == "__main__":
-    unittest.main(
-        verbosity=2,
-        exit=False,
-        argv=[__file__, "-k", "test_manage_contact_page"]
-    )
+def test_linkedin_login_form_input_pass():
+    sel = Selenium()
+    sel.init()
+    sel.driver.get(URL_HOME)
+    input_el, *_ = sel.get_element_by_xpath(LOGIN_INPUT_PASS)
+    expected = "session_password"
+
+    assert isinstance(LOGIN_INPUT_EMAIL, str)
+    assert input_el.get_attribute("id") == expected
+    sel.quit()
+
+
+def test_linkedin_login_form_btn():
+    sel = Selenium()
+    sel.init()
+    sel.driver.get(URL_HOME)
+    input_el, *_ = sel.get_element_by_xpath(LOGIN_BUTTON)
+    expected = "sign-in-form__submit-btn"
+
+    assert isinstance(LOGIN_INPUT_EMAIL, str)
+    assert input_el.get_attribute("data-id") == expected
+    sel.quit()
+
+
+def test_manage_contact_page():
+    sel = Selenium()
+    sel.init()
+    sel.login()
+
+    print("detectar boton para Conectar")
+    actions = sel.manage_contact_page(LINKEDIN_CONTACT_CONECT)
+    assert ACTION_CONNECT in actions, "ERROR en: Boton para conectar"
+    print("Conectar: OK")
+
+    print("detectar boton para Pendiente")
+    actions = sel.manage_contact_page(LINKEDIN_CONTACT_PENDING)
+    assert ACTION_PENDING in actions, "ERROR en: Bot�n Pendiente"
+    print("Pendiente: OK")
+
+    print("detectar boton para Seguir")
+    actions = sel.manage_contact_page(LINKEDIN_CONTACT_FOLLOW)
+    assert ACTION_FOLLOW in actions, "ERROR: No se encuentra bot�n Seguir"
+    print("Seguir: OK")
+
+    print("detectar boton para Sin Boton")
+    actions = sel.manage_contact_page(LINKEDIN_CONTACT_NOT_POSSIBLE)
+    assert actions == [], "ERROR en: Sin Boton"
+    print("Sin Boton: OK")
+    sel.quit()

@@ -2,6 +2,7 @@
 import os
 
 from selenium import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
 from helper.time import time_to_sleep
 from selenium.webdriver.common.by import By
 from dotenv import load_dotenv
@@ -42,18 +43,22 @@ class Selenium:
 
     def init(self) -> None:
         """Función para iniciar navegador web"""
-        options = webdriver.ChromeOptions()
-        # options.add_argument("--headless=new")
-        self.driver = webdriver.Chrome(options=options)
+
+        #options = webdriver.safari.options.Options()
+        #self.driver = webdriver.Safari(options=options)
+        self.driver = webdriver.Chrome()
+        self.driver.set_window_size(1400, 780)
         return self.driver
 
     def get_elements_by_xpath(self, xpath_id: str) -> str:
         """Función para encontrar elementos HTML por XPATH"""
+
         ele = self.driver.find_elements(By.XPATH, xpath_id)
         return ele
 
     def login(self) -> None:
         """Función para inicar sesión en LinkedIn"""
+
         self.driver.get(URL_HOME)
         self.driver.implicitly_wait(6)
 
@@ -65,15 +70,18 @@ class Selenium:
 
         btn, *_ = self.get_elements_by_xpath(LOGIN_BUTTON)
         btn.click()
+        input("Agrega el codigo de verificacion si es necesario y presiona enter")
 
     def get_contact_page_buttons(self) -> None:
         """Función para obtener los botones de contacto en la página de la persona"""
+
         time_to_sleep(3, 5)
         buttons = self.get_elements_by_xpath(LINKEDIN_CONTACT_BUTTONS)
         return buttons
 
     def get_button(self, key_word: str, buttons: list) -> object or False:
         """Función que consigue el botón en función de la Key_word pasada como argumento"""
+
         target_btn = False
 
         for btn in buttons:
@@ -85,7 +93,9 @@ class Selenium:
 
     def manage_contact_page(self, url: str) -> str:
         """Función que determina qué boton tiene el contacto disponible y retorna una acción"""
+
         self.driver.get(url)
+        time_to_sleep(2, 6)
         buttons = self.get_contact_page_buttons()
         actions = []
 
@@ -105,32 +115,36 @@ class Selenium:
 
     def press_add_note_button(self) -> None:
         """Función que buscar y presionar botón para agregar nota al contacto"""
+
         button,  = self.get_elements_by_xpath(
             CONNECT_MODAL + CONNECT_MODAL_ADD_NOTE_BUTTON
         )
         button.click()
 
-    def add_note(self, name: str, message: str) -> None:
+    def add_note(self, message: str) -> None:
         """Función que agregar el mensaje en el campo de texto"""
-        full_message = f"Hola {name},\n{message}"
+
         text_area,  = self.get_elements_by_xpath(CONNECT_MODAL_TEXT_AREA)
-        text_area.send_keys(full_message)
+        text_area.send_keys(message)
 
     def press_send_note_button(self) -> None:
         """Función que buscar y presionar botón para enviar la nota al contacto"""
+
         btn,  = self.get_elements_by_xpath(
             SEND_MESSAGE_BUTTON_CONTAINER + SEND_MESSAGE_BUTTON
         )
         btn.click()
 
-    def press_connect_button(self, contact_name: str, contact_message: str) -> None:
+    def press_connect_button(self, contact_message: str) -> None:
         """Función flujo para agregar nota y presionar botón de enío de nota a contacto"""
+
         self.connect_btn.click()
         self.press_add_note_button()
-        self.add_note(contact_name, contact_message)
+        self.add_note(contact_message)
         time_to_sleep(3, 7)
         self.press_send_note_button()
 
     def press_follow_button(self) -> None:
         """Función para presionar botón Seguir contacto"""
+
         self.follow_btn.click()

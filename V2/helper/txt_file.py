@@ -1,5 +1,5 @@
 
-def transforming_contact_data(file: str):
+def txt_file_contact(file: str):
     """extrae información de cada contacto del archivo y la transforma"""
 
     result = []
