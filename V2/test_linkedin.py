@@ -1,43 +1,71 @@
-from helper.df import save_to_csv
+import pytest
+
 from Class.LinkedIn import LinkedInMessage
-from pathlib import Path
+from Class.enums.LinkedIn import Action
 
-COMPANY_NAME = "antamina"
-EXECUTOR = "int-elle"
+USER_NAME = "planeta_notion"
 
-def test_contacts():
-    linkedin = LinkedInMessage(COMPANY_NAME, EXECUTOR)
-    contacts = linkedin.contacts
+NOTION_DATABASE_ID = "190f2bf3894249158abc2eb920f41a34"
+NOTION_API_KEY = "secret_zmSrhMzHk42dTAcpYegvuq7Jc6yTm0HNLBCNULHxSvZ"
+
+@pytest.fixture(scope="module")
+def linkedin_instance():
+    linkedin = LinkedInMessage(database_id = NOTION_DATABASE_ID, key = NOTION_API_KEY)
+    yield linkedin
+
+@pytest.fixture(scope="module")
+def linkedin_contacts():
+    linkedin = LinkedInMessage(database_id = NOTION_DATABASE_ID, key = NOTION_API_KEY)
+    linkedin.start()
+    yield linkedin
+
+def test_all_contacts(linkedin_contacts):
+    linkedin = linkedin_contacts
+
+    assert len(linkedin.contacts) > 800
+
+def test_contacts(linkedin_contacts):
+    linkedin = linkedin_contacts
+    first, *_ = linkedin.contacts
 
     expected = {
-        "name": "Rafael Estrada",
-        "job_position": "IT manager at Antamina",
-        "image": "NT",
-        "page_profile": "https://www.linkedin.com/in/rafael-estrada-a6a6226?miniProfileUrn=urn%3Ali%3Afs_miniProfile%3AACoAAAEo3XIB0ScJAZUi81HQSwr7Of0PJmV4wTw",
-        "action": "Enviar mensaje",
-        "country": "Perú",
-        "company_name": "Antamina",
-        "company_page": 96,
+        "name": "Rayedel Ortega",
+        "page_profile": "https://www.linkedin.com/in/rayedelortega?miniProfileUrn=urn%3Ali%3Afs_miniProfile%3AACoAACIMc9oBrsIPDr9vrpruLojJPF3wo6zgwjk",
     }
-    assert contacts[0] == expected
+    assert first.get_name() == expected["name"]
+    assert first.get_first_name() == "Rayedel"
+    assert first.get_page_profile() == expected["page_profile"]
 
-def test_select_message():
-    linkedin = LinkedInMessage(COMPANY_NAME, EXECUTOR)
+def test_get_buttons_in_profile_page(linkedin_contacts):
+    linkedin = linkedin_contacts
+    first, *rest = linkedin.contacts
+    linkedin.scraper.go_to_page(first.get_page_profile())
+    buttons = linkedin.scraper.get_page_profile_buttons()
 
-    msg = linkedin.select_message("andres")
-    expected = "Hola andres!, Represento a Int-elle Corporation de canadá y somos especialistas en desgaste para el sector minero industrial. Diseñamos y fabricamos productos, piezas y recubrimientos de alta resistencia contra el desgaste. Me gustaría conozcas nuestros productos, conectamos?. Saludos.\n"
-    assert msg == expected
+    assert len(buttons) > 2
 
 
-def test_save_contacts_to_csv_file():
-    data = [
-        {"name": "Noah", "cargo": "Gerente", "status": "contactado"},
-        {"name": "José Juan", "cargo": "Ingeniero", "status": "pendiente"}
-    ]
-    new_file_name = "test_data_2"
-    save_to_csv(new_file_name, data)
+def test_buttons_in_contact_page(linkedin_contacts):
+    linkedin = linkedin_contacts
+    first, _, third, _, _, sixth, *rest = linkedin.contacts
+    actions_first = linkedin.scraper.manage_contact_page(first.get_page_profile())
+    actions_third = linkedin.scraper.manage_contact_page(third.get_page_profile())
+    actions_sixth = linkedin.scraper.manage_contact_page(sixth.get_page_profile())
 
-    v2_path = Path().absolute()
-    expected_dir_path = Path(v2_path, "result", f"{new_file_name}.csv")
+    assert type(Action.FOLLOW.value) == str
+    assert Action.FOLLOW.value in actions_first
+    assert Action.FOLLOW.value in actions_third
+    assert Action.FOLLOW.value in actions_sixth
 
-    assert expected_dir_path.exists()
+def test_right_message(linkedin_contacts):
+    link = linkedin_contacts
+    link.set_user(user=USER_NAME)
+    first, *rest = link.contacts
+    message = link.select_message(contact_name=first.get_first_name())
+
+    expected = """¡Hola Rayedel!
+Soy especialista en optimizar procesos usando Notion.
+Si buscas mejorar la productividad de tu equipo, me encantaría mostrarte cómo
+¿Te gustaría ver cómo podría beneficiar a tu empresa?"""
+
+    assert message == expected

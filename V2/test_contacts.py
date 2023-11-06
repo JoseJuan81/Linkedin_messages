@@ -1,82 +1,49 @@
+import pytest
+import os
 
-from Class.Contacts import Contacts
-from pathlib import Path
+from Class.NotionBase import Notion
+from Class.enums.LinkedIn import Action
 
-COMPANY_NAME = "test_company_2.csv"
+NOTION_DATABASE_ID = "190f2bf3894249158abc2eb920f41a34"
+NOTION_API_KEY = "secret_zmSrhMzHk42dTAcpYegvuq7Jc6yTm0HNLBCNULHxSvZ"
 
+@pytest.fixture(scope='module')
+def notion_instance():
+    notion = Notion(database_id=NOTION_DATABASE_ID, key=NOTION_API_KEY)
+    yield notion
 
-def test_contacts_path():
-    """Probar la ruta en la que se encuentran los datos"""
-    contact = Contacts()
-    contact.set_company_name(COMPANY_NAME)
-    # se ejecuta get_source_path() automaticamente
+def test_validating_request_notion_data(notion_instance):
+    notion = notion_instance
+    data = notion.request_notion_data()
 
-    jupyter_path = Path().absolute().parents[1]
-    expected_dir_path = Path(jupyter_path, "scraping-linkedin", "V2", "result", COMPANY_NAME)
-
-    assert expected_dir_path == contact.contacts_source
-
-
-def test_select_company_data():
-    contact = Contacts()
-    contact.set_company_name(COMPANY_NAME)
-    # se ejecuta get_source_path() automaticamente
-
-    expected = COMPANY_NAME
-    assert expected == f"{contact.company_name}.csv"
-    assert expected == contact.company_dir_path.stem
+    assert data["object"] == "list"
+    assert type(data["results"]) == list
+    assert type(data["next_cursor"]) == str
+    assert type(data["has_more"]) == bool
+    assert data["type"] == "page_or_database"
+    assert data["page_or_database"] == {}
 
 
-def test_get_contacts_files():
-    """Busca en la carpeta result de scrapping-linkedin y cuenta la cantidad de archivos que existen"""
+def test_validating_notion_contacts_instance(notion_instance):
+    notion = notion_instance
+    notion_data = notion.request_notion_data()
+    contacts = notion.get_notion_contacts_instance(notion_data)
+    first, *_ = contacts
 
-    contact = Contacts()
-    contact.set_company_name(COMPANY_NAME)
-    # se ejecuta get_source_path() automaticamente
-    contact.get_contacts_files()
-    assert len(contact.files) == 1 
+    assert type(first.get_id()) == str
+    assert type(first.get_properties()) == dict
+    assert type(first.get_url()) == str
+    assert type(first.get_name()) == str
+    assert type(first.get_page_profile()) == str
 
+def test_build_json_data(notion_instance):
+    notion = notion_instance
+    notion_data = notion.request_notion_data()
+    contacts = notion.get_notion_contacts_instance(notion_data)
+    first, *_ = contacts
+    first.set_status(status=Action.FOLLOW)
 
-def test_build_contact_obj():
-    contact = Contacts()
-    contact.set_company_name(COMPANY_NAME)
-    contact.get_source_path()
-    contacts = contact.build_contact()
+    json_data = notion.build_json_data(first)
+    result = json_data["properties"]["Estado"]["select"]["name"]
 
-    expected = {
-        "name": "Rafael Estrada",
-        "job_position": "IT manager at Antamina",
-        "image": "NT",
-        "page_profile": "https://www.linkedin.com/in/rafael-estrada-a6a6226?miniProfileUrn=urn%3Ali%3Afs_miniProfile%3AACoAAAEo3XIB0ScJAZUi81HQSwr7Of0PJmV4wTw",
-        "action": "Enviar mensaje",
-        "country": "Perú",
-        "company_name": "Antamina",
-        "company_page": 96,
-        # "key_position": "compras"
-    }
-    assert contacts[0] == expected
-
-
-def test_get_contacts_from():
-    contact = Contacts()
-    contacts = contact.get_contacts_from(COMPANY_NAME)
-    first_contact = contacts[0]
-    expected = {
-        "name": "Rafael Estrada",
-        "job_position": "IT manager at Antamina",
-        "image": "NT",
-        "page_profile": "https://www.linkedin.com/in/rafael-estrada-a6a6226?miniProfileUrn=urn%3Ali%3Afs_miniProfile%3AACoAAAEo3XIB0ScJAZUi81HQSwr7Of0PJmV4wTw",
-        "action": "Enviar mensaje",
-        "country": "Perú",
-        "company_name": "Antamina",
-        "company_page": 96,
-    }
-    assert first_contact == expected
-
-
-def test_first_3_contacts():
-    contact = Contacts()
-    contacts = contact.get_contacts_from(COMPANY_NAME)
-    first_3_contacts = contacts[:3]
-    assert len(first_3_contacts) == 3
-
+    assert Action.FOLLOW == result
