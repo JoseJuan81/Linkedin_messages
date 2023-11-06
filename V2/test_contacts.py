@@ -1,74 +1,49 @@
-import unittest
-from Class.Contacts import Contacts
-from pathlib import Path
+import pytest
+import os
 
-COMPANY_NAME = "test_company"
+from Class.NotionBase import Notion
+from Class.enums.LinkedIn import Action
 
+NOTION_DATABASE_ID = "190f2bf3894249158abc2eb920f41a34"
+NOTION_API_KEY = "secret_zmSrhMzHk42dTAcpYegvuq7Jc6yTm0HNLBCNULHxSvZ"
 
-class TestContacts(unittest.TestCase):
+@pytest.fixture(scope='module')
+def notion_instance():
+    notion = Notion(database_id=NOTION_DATABASE_ID, key=NOTION_API_KEY)
+    yield notion
 
-    def test_contacts_path(self):
-        """Probar la ruta en la que se encuentran los datos"""
-        contact = Contacts()
-        contact.get_source_path()
+def test_validating_request_notion_data(notion_instance):
+    notion = notion_instance
+    data = notion.request_notion_data()
 
-        jupyter_path = Path().absolute()
-        expected_dir_path = Path(jupyter_path, "Scraping-linkedin", "data")
-
-        self.assertEqual(expected_dir_path, contact.contacts_source)
-
-    def test_select_company_data(self):
-        contact = Contacts()
-        contact.set_company_name(COMPANY_NAME)
-
-        expected = COMPANY_NAME
-        self.assertEqual(expected, contact.company_name)
-        self.assertEqual(expected, contact.company_dir_path.stem)
-
-    def test_get_contacts_files(self):
-        contact = Contacts()
-        contact.set_company_name(COMPANY_NAME)
-        contact.get_contacts_files()
-        self.assertEqual(len(contact.files), 10)
-
-    def test_build_contact_obj(self):
-        contact = Contacts()
-        contact.set_company_name(COMPANY_NAME)
-        contacts = contact.build_contact()
-
-        expected = {
-            "name": "Jaime Hugo Gonzales Cordero",
-            "position": "Administrador de Compras e Inventario en Compañía Minera Antamina",
-            "link": "https://www.linkedin.com/in/jaime-hugo-gonzales-cordero-7884298a?miniProfileUrn=urn%3Ali%3Afs_miniProfile%3AACoAABLtsxgBHw-1c61qm_sR5KiIZddBLwjaIDk",
-            "page": "56",
-            "key_position": "compras"
-        }
-        self.assertEqual(contacts[0], expected)
-
-    def test_get_contacts_from(self):
-        contact = Contacts()
-        contacts = contact.get_contacts_from(COMPANY_NAME)
-        first_contact = contacts[0]
-        expected = {
-            "name": "Jaime Hugo Gonzales Cordero",
-            "position": "Administrador de Compras e Inventario en Compañía Minera Antamina",
-            "link": "https://www.linkedin.com/in/jaime-hugo-gonzales-cordero-7884298a?miniProfileUrn=urn%3Ali%3Afs_miniProfile%3AACoAABLtsxgBHw-1c61qm_sR5KiIZddBLwjaIDk",
-            "page": "56",
-            "key_position": "compras"
-        }
-        self.assertEqual(first_contact, expected)
-
-    def test_first_15_contacts(self):
-        contact = Contacts()
-        contacts = contact.get_contacts_from(COMPANY_NAME)
-        first_15_contacts = contacts[:15]
-        self.assertEqual(len(first_15_contacts), 15)
-
-    def test_all_128_contacts(self):
-        contact = Contacts()
-        contacts = contact.get_contacts_from(COMPANY_NAME)
-        self.assertEqual(len(contacts), 128)
+    assert data["object"] == "list"
+    assert type(data["results"]) == list
+    assert type(data["next_cursor"]) == str
+    assert type(data["has_more"]) == bool
+    assert data["type"] == "page_or_database"
+    assert data["page_or_database"] == {}
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_validating_notion_contacts_instance(notion_instance):
+    notion = notion_instance
+    notion_data = notion.request_notion_data()
+    contacts = notion.get_notion_contacts_instance(notion_data)
+    first, *_ = contacts
+
+    assert type(first.get_id()) == str
+    assert type(first.get_properties()) == dict
+    assert type(first.get_url()) == str
+    assert type(first.get_name()) == str
+    assert type(first.get_page_profile()) == str
+
+def test_build_json_data(notion_instance):
+    notion = notion_instance
+    notion_data = notion.request_notion_data()
+    contacts = notion.get_notion_contacts_instance(notion_data)
+    first, *_ = contacts
+    first.set_status(status=Action.FOLLOW)
+
+    json_data = notion.build_json_data(first)
+    result = json_data["properties"]["Estado"]["select"]["name"]
+
+    assert Action.FOLLOW == result

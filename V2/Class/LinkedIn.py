@@ -5,107 +5,126 @@ import pandas as pd
 from dotenv import load_dotenv
 from helper.time import time_to_sleep
 from Class.Contacts import Contacts as Cts
-from Class.Selenium import Selenium
-from helper.files import match_file_and_get_content, get_message_dir_path
+from Class.Selenium import Scraper
+from Class.NotionBase import Notion
+from Class.enums.LinkedIn import Action, ConectionStatus
+
+from helper.files import read_file_content, get_message_dir_path
 from helper.df import save_to_csv
-from pathlib import Path
+from helper.time import time_to_sleep
 
 load_dotenv()
 
 SALES = "compras"
 MAINTENANCE = "mantenimiento"
 
-ACTION_CONNECT = os.getenv("ACTION_CONNECT")
-ACTION_FOLLOW = os.getenv("ACTION_FOLLOW")
-ACTION_PENDING = os.getenv("ACTION_PENDING")
-ACTION_NOT_POSSIBLE = os.getenv("ACTION_NOT_POSSIBLE")
-
-contacts = Cts()
-
+# contacts = Cts()
 
 class LinkedInMessage:
     """Clase para gestionar contactos y enviar mensajes a cada uno por LinkedIm"""
 
-    def __init__(self, company_name) -> None:
-        self.company_name = company_name
-        self.contacts = []
-        self.contacts_to_save = []
-        self.people_contacted = []
-        self.selenium = Selenium()
+    def __init__(self, database_id: str = "", key: str = "") -> None:
+        self.executor: str = ""
+        self.contacts: list = []
+        self.notion: Notion = Notion(database_id=database_id, key=key)
+        self.scraper: Scraper = Scraper()
 
+    def start(self) -> None:
+        """Funcion para iniciar proceso de scraping"""
+
+        self.browser_start()
         self.get_contacts()
 
-    def get_contacts(self) -> None:
-        """Administrar contactos"""
+    def set_user(self, user: str = "") -> None:
+        """Funcion para establecer el usuario que esta ejecutando el scrping"""
 
-        self.contacts = contacts.get_contacts_from(self.company_name)
-        print("="*50)
-        print(f"Fueron encontrados: {len(self.contacts)} contactos")
-        print(f"en la empresa {self.company_name}")
-        print("="*50)
+        self.executor = user
 
     def browser_start(self) -> None:
         """Iniciar el navegador e iniciar sesión en LinkedIn"""
 
-        self.selenium.init()
-        self.selenium.login()
+        self.scraper.init()
+        self.scraper.login()
+        time_to_sleep(1, 3)
 
-    def select_message(self, position) -> str:
-        """Seleccionar mensaje en función del cargo"""
+    def get_contacts(self) -> None:
+        """Funcion para obtener contactos de Notion"""
 
-        message_path = get_message_dir_path()
-        files = [f for f in message_path.iterdir() if f.suffix == ".txt"]
-        txt = match_file_and_get_content(position, files)
-
-        return txt
-
-    def manage_contact(self, url: str) -> str:
-        """Función que gestiona acciones en la página del contacto"""
-        actions = self.selenium.manage_contact_page(url)
-        return actions
+        self.contacts = self.notion.get_contacts()
 
     def send(self) -> None:
         """Enviar mensajes a los contactos"""
 
         counter = 1
         for contact in self.contacts:
-            name, _, contact_url, _, key_position = contact.values()
-            contact["status"] = ACTION_NOT_POSSIBLE
 
-            print("="*50)
+            contact.set_status(ConectionStatus.IMPOSSIBLE.value)
+
+            print(".."*50)
             print(f"Contador: {counter}/{len(self.contacts)}")
-            print(f"Pág. de {name}")
+            print(f"Pág. de {contact.get_name()}")
 
-            actions = self.manage_contact(contact_url)
+            actions = self.scraper.manage_contact_page(contact.get_page_profile())
+            self.manage_actions(actions=actions, contact=contact)
 
-            if ACTION_PENDING in actions:
-                contact["status"] = ACTION_PENDING
+            saved = self.notion.update_contact(contact=contact)
 
-            if ACTION_FOLLOW in actions:
-                self.selenium.press_follow_button()
-                contact["status"] = ACTION_FOLLOW
-                time_to_sleep(1, 5)
-
-            if ACTION_CONNECT in actions:
-                message = self.select_message(key_position)
-                self.selenium.press_connect_button(name, message)
-                contact["status"] = ACTION_CONNECT
-                time_to_sleep(3, 8)
-
-            print(f'Estado del contacto: {contact["status"]}')
+            print(f'Estado del contacto: {contact.get_status()}')
+            print("Guardado en Notion")
+            print(saved)
             print("HECHO!!!")
-            print("="*50)
+            print("✔︎"*50)
 
-            self.people_contacted.append(contact)
-            save_to_csv(self.company_name, self.people_contacted)
+            #self.people_contacted.append(contact)
+            #save_to_csv(self.company_name, self.people_contacted)
             counter += 1
 
-            time_to_sleep(5, 15)
+            time_to_sleep(2, 7) if counter % 5 == 0 else time_to_sleep(1, 3)
+
+    def select_message(self, contact_name: str = "") -> str:
+        """Seleccionar mensaje en función del cargo"""
+
+        message_dir_path = get_message_dir_path(self.executor)
+
+        if message_dir_path:
+            file, *_ = [f for f in message_dir_path.iterdir() if f.suffix == ".txt"]
+            content_file = read_file_content(file)
+            txt = content_file.format(name = contact_name)
+        else:
+            print("!!"*50)
+            print("No existe carpeta para empresa ejecutora especificada o no se ha especificado.")
+            print("Revisa la carpeta 'messages' para determinar mensaje de la empresa ejecutora")
+            print("!!"*50)
+
+        return txt
+
+    def manage_actions(self, actions: list = [], contact: dict = {}) -> None:
+        """Funcion que ejecuta acciones en funcion del valor de 'actions'"""
+
+        if Action.PENDING.value in actions:
+            contact.set_status(ConectionStatus.PENDING.value)
+
+        if Action.FOLLOW.value in actions:
+            contact.set_status(ConectionStatus.FOLLOW.value)
+            time_to_sleep(1, 3)
+            self.scraper.press_follow_button()
+
+        if Action.CONNECT.value in actions:
+            contact.set_status(ConectionStatus.CONNECT.value)
+            time_to_sleep(1, 4)
+            message = self.select_message(contact_name=contact.get_first_name())
+            self.scraper.press_connect_button(message)
+
+        if Action.MAS.value in actions:
+            contact.set_status(ConectionStatus.CONNECT.value)
+            time_to_sleep(1, 4)
+            message = self.select_message(contact_name=contact.get_first_name())
+            self.scraper.press_more_button(message)
+
+
+    def end(self) -> None:
+        """Funcion para indicar a usuario que termino el proceso de scraping"""
 
         print("="*50)
-        print(
-            f"Creado archivo {self.company_name}.csv dentro del directorio '/result'")
-        print(
-            f"con los {len(self.contacts)} contactos clasificados por 'status'")
-        print("="*50)
         print("FIN")
+        print("="*50)
