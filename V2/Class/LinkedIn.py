@@ -10,7 +10,6 @@ from Class.NotionBase import Notion
 from Class.enums.LinkedIn import Action, ConectionStatus
 
 from helper.files import read_file_content, get_message_dir_path
-from helper.df import save_to_csv
 from helper.time import time_to_sleep
 
 load_dotenv()
@@ -58,14 +57,15 @@ class LinkedInMessage:
         counter = 1
         for contact in self.contacts:
 
-            contact.set_status(ConectionStatus.IMPOSSIBLE.value)
+            #contact.set_status(ConectionStatus.IMPOSSIBLE.value)
 
             print(".."*50)
             print(f"Contador: {counter}/{len(self.contacts)}")
             print(f"Pág. de {contact.get_name()}")
 
-            actions = self.scraper.manage_contact_page(contact.get_page_profile())
-            self.manage_actions(actions=actions, contact=contact)
+            self.scraper.go_to_page(url=contact.get_page_profile())
+            contact_status = self.manage_profile_buttons(contact=contact)
+            contact.set_status(contact_status)
 
             saved = self.notion.update_contact(contact=contact)
 
@@ -98,29 +98,38 @@ class LinkedInMessage:
 
         return txt
 
-    def manage_actions(self, actions: list = [], contact: dict = {}) -> None:
-        """Funcion que ejecuta acciones en funcion del valor de 'actions'"""
+    def manage_profile_buttons(self, url: str = "", contact: dict = {}) -> str:
+        """Funcion para presionar los botones que estan en la pagina de
+        perfil de usuario del contacto"""
 
-        if Action.PENDING.value in actions:
-            contact.set_status(ConectionStatus.PENDING.value)
+        status = ConectionStatus.IMPOSSIBLE.value
 
-        if Action.FOLLOW.value in actions:
-            contact.set_status(ConectionStatus.FOLLOW.value)
-            time_to_sleep(1, 3)
-            self.scraper.press_follow_button()
-
-        if Action.CONNECT.value in actions:
-            contact.set_status(ConectionStatus.CONNECT.value)
-            time_to_sleep(1, 4)
+        connected = self.scraper.get_contact_button()
+        if connected:
             message = self.select_message(contact_name=contact.get_first_name())
             self.scraper.press_connect_button(message)
+            return ConectionStatus.CONNECT.value
+            
+        followed = self.scraper.get_follow_button()
+        print("followed")
+        print(followed)
+        if followed:
+            self.scraper.press_follow_button()
+            status = ConectionStatus.FOLLOW.value
 
-        if Action.MAS.value in actions:
-            contact.set_status(ConectionStatus.CONNECT.value)
-            time_to_sleep(1, 4)
+        more = self.scraper.get_more_button()
+        print("more")
+        print(more)
+        if more:
+            self.scraper.press_more_button()
             message = self.select_message(contact_name=contact.get_first_name())
-            self.scraper.press_more_button(message)
 
+            exist = self.scraper.more_button_flow(
+                full_name=contact.get_name(),
+                message=message)
+            return ConectionStatus.CONNECT.value if exist else status
+        
+        return status
 
     def end(self) -> None:
         """Funcion para indicar a usuario que termino el proceso de scraping"""

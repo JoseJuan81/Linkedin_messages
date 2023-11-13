@@ -8,3 +8,10 @@ class HtmlSelector:
     CONNECT_MODAL_TEXT_AREA = '//textarea'
     SEND_MESSAGE_BUTTON_CONTAINER = '//div[@class="artdeco-modal__actionbar ember-view text-align-right"]'
     SEND_MESSAGE_BUTTON = '//button[@aria-label="Enviar ahora"]'
+    MENU_OPTIONS_MORE_BUTTON = '//div[@class="artdeco-dropdown__content-inner"]//ul//li'
+    CONNECT_MORE_MENU = 'div.pvs-profile-actions div[aria-label="Invita a {name} a conectar"]'
+
+    def connect_more_menu_selector(self, full_name: str = "") -> str:
+        """Funcion que retorna el selector con nombre del contacto"""
+
+        return self.CONNECT_MORE_MENU.format(name=full_name)

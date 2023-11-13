@@ -3,6 +3,7 @@ import os
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote import webelement
 from dotenv import load_dotenv
 
 from Class.HtmlSelector import HtmlSelector
@@ -23,6 +24,7 @@ class Scraper(HtmlSelector):
         self.connect_btn = None
         self.follow_btn = None
         self.more_btn = None
+        self.buttons: list = []
 
     def init(self) -> None:
         """Función para iniciar navegador web"""
@@ -48,11 +50,32 @@ class Scraper(HtmlSelector):
         btn.click()
         input("Agrega el codigo de verificacion si es necesario y presiona enter\n")
 
-    def get_elements_by_xpath(self, xpath_id: str) -> str:
+    def get_elements_by_xpath(self, xpath_id: str) -> list[webelement]:
         """Función para encontrar elementos HTML por XPATH"""
 
-        ele = self.driver.find_elements(By.XPATH, xpath_id)
-        return ele
+        # COnsiderar usar un decorador para el try except
+        # y asi poder usarlo con cualquier otra funcion
+        try:
+            ele = self.driver.find_elements(By.XPATH, xpath_id)
+            return ele
+        except Exception as err:
+            print("No obtuvo web elements. Revisa el error")
+            print(err)
+            print("!!"*40)
+            return []
+        
+    def get_element(self, css_selector: str ="") -> webelement:
+        """Funcion que retorna el elemento web encontrado de acuerdo
+        al selector"""
+
+        try:
+            ele = self.driver.find_element(By.CSS_SELECTOR, css_selector)
+            return ele
+        except Exception as err:
+            print("No obtuvo web element usando css selector. Revisa el error")
+            print(err)
+            print("!!"*40)
+            return None
 
     def get_page_profile_buttons(self) -> None:
         """Función para obtener los botones de contacto en la página de la persona"""
@@ -73,47 +96,33 @@ class Scraper(HtmlSelector):
 
         return target_btn
 
-    def manage_contact_page(self, url: str) -> str:
-        """Función que determina qué botones tiene el contacto disponible
-        y retorna sus nombres como acciones"""
-
-        self.go_to_page(url=url)
-        time_to_sleep(1, 4)
-
-        buttons = self.get_page_profile_buttons()
-        actions = []
-
-        # para que no haya error cuando la page_profile es una estado
-        time_to_sleep(1, 2)
-        self.follow_btn = self.get_button(ButtonName.FOLLOW.value, buttons)
-        if self.follow_btn:
-            actions.append(Action.FOLLOW.value)
-
-        pending_btn = self.get_button(ButtonName.PENDING.value, buttons)
-        if pending_btn:
-            actions.append(Action.PENDING.value)
-
-        self.connect_btn = self.get_button(ButtonName.CONNECT.value, buttons)
-        if self.connect_btn:
-            actions.append(Action.CONNECT.value)
-
-        self.more_btn = self.get_button(ButtonName.MAS.value, buttons)
-        if self.more_btn:
-            actions.append(Action.MAS.value)
-
-        return actions
-
     def go_to_page(self, url: str = "") -> None:
         """Funcion para ir a una determinada pagina"""
 
         self.driver.get(url)
+    
+    def get_contact_button(self) -> bool:
+        """Funcion para obtener el boton de conectar"""
+
+        self.buttons = self.get_page_profile_buttons()
+        self.connect_btn = self.get_button(ButtonName.CONNECT.value, self.buttons)
+
+        return True if self.connect_btn else False
+    
+    def press_connect_button(self, contact_message: str) -> None:
+        """Función flujo para agregar nota y presionar botón de enío de nota a contacto"""
+
+        self.connect_btn.click()
+        self.press_add_note_button()
+        self.add_note(contact_message)
+        time_to_sleep(3, 6)
+        self.press_send_note_button()
 
     def press_add_note_button(self) -> None:
         """Función que buscar y presionar botón para agregar nota al contacto"""
 
-        button,  = self.get_elements_by_xpath(
-            self.CONNECT_MODAL + self.CONNECT_MODAL_ADD_NOTE_BUTTON
-        )
+        selector = self.CONNECT_MODAL + self.CONNECT_MODAL_ADD_NOTE_BUTTON
+        button,  = self.get_elements_by_xpath(selector)
         button.click()
 
     def add_note(self, message: str) -> None:
@@ -125,19 +134,19 @@ class Scraper(HtmlSelector):
     def press_send_note_button(self) -> None:
         """Función que buscar y presionar botón para enviar la nota al contacto"""
 
-        btn,  = self.get_elements_by_xpath(
-            self.SEND_MESSAGE_BUTTON_CONTAINER + self.SEND_MESSAGE_BUTTON
-        )
+        selector = self.SEND_MESSAGE_BUTTON_CONTAINER + self.SEND_MESSAGE_BUTTON
+        btn,  = self.get_elements_by_xpath(selector)
         btn.click()
 
-    def press_connect_button(self, contact_message: str) -> None:
-        """Función flujo para agregar nota y presionar botón de enío de nota a contacto"""
+    def get_follow_button(self) -> bool:
+        """Funcion para obtener el boton de seguir"""
 
-        self.connect_btn.click()
-        self.press_add_note_button()
-        self.add_note(contact_message)
-        time_to_sleep(3, 7)
-        self.press_send_note_button()
+        if not self.buttons:
+            self.buttons = self.get_page_profile_buttons()
+
+        self.follow_btn = self.get_button(ButtonName.FOLLOW.value, self.buttons)
+
+        return True if self.follow_btn else False
 
     def press_follow_button(self) -> None:
         """Función para presionar botón Seguir contacto"""
@@ -147,9 +156,32 @@ class Scraper(HtmlSelector):
         except:
             self.driver.execute_script("arguments[0].click();", self.follow_btn)
 
-    def press_more_button(self, contact_message: str) -> None:
+    def get_more_button(self) -> bool:
+        """Funcion para obtener boton MAS"""
+
+        if not self.buttons:
+            self.buttons = self.get_page_profile_buttons()
+        print("self.buttons")
+        print(self.buttons)
+        self.more_btn = self.get_button(ButtonName.MAS.value, self.buttons)
+
+        return True if self.more_btn else False
+    
+    def press_more_button(self) -> None:
         """Funcion que presiona el boton mas para desplegar mas acciones
         y poder conectar y segui"""
 
         self.more_btn.click()
-        # se despliega el menu y debo presionar Seguir y Conectar
+
+    def more_button_flow(self, full_name: str = "", message: str = "") -> None:
+        """Funcion para hacer el flujo de presionar botones de
+        Seguir y/o Conectar"""
+
+        connect_button_selector = self.connect_more_menu_selector(full_name=full_name)
+        self.connect_btn = self.get_element(css_selector=connect_button_selector)
+        if self.connect_btn:
+            self.press_connect_button(message)
+            return True
+
+        return False
+
